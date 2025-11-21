@@ -44,4 +44,11 @@ class CatalogService {
   Future<void> addMedia(Media media) async {
     await _firestore.collection('media').doc(media.id).set(media.toFirestore());
   }
+
+  // Update media availability
+  Future<void> updateMediaAvailability(String mediaId, bool available) async {
+    await _firestore.collection('media').doc(mediaId).update({
+      'available': available,
+    });
+  }
 }

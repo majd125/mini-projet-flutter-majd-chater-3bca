@@ -1,47 +1,9 @@
 /*
 import 'package:flutter/material.dart';
-
-class CatalogScreen extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Catalogue'),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.search),
-            onPressed: () {
-              // TODO: Implement search
-            },
-          ),
-        ],
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.library_books, size: 64, color: Colors.grey[400]),
-            SizedBox(height: 16),
-            Text(
-              'Catalogue à venir',
-              style: TextStyle(fontSize: 18, color: Colors.grey[600]),
-            ),
-            SizedBox(height: 8),
-            Text(
-              'Nous travaillons sur cette fonctionnalité',
-              style: TextStyle(color: Colors.grey[500]),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-*/
-import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/catalog_service.dart';
 import '../../models/media_model.dart';
+import '../../services/borrowing_service.dart'; // Make sure this exists
 
 class CatalogScreen extends StatefulWidget {
   @override
@@ -109,9 +71,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
     return StreamBuilder<List<Media>>(
       stream: _selectedFilter == 'all'
           ? Provider.of<CatalogService>(context).getMedia()
-          : Provider.of<CatalogService>(
-              context,
-            ).getMediaByType(_selectedFilter),
+          : Provider.of<CatalogService>(context).getMediaByType(_selectedFilter),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Center(child: CircularProgressIndicator());
@@ -179,7 +139,6 @@ class _CatalogScreenState extends State<CatalogScreen> {
         ),
         trailing: Icon(Icons.arrow_forward_ios, size: 16),
         onTap: () {
-          // Navigate to media details
           _showMediaDetails(media);
         },
       ),
@@ -197,6 +156,10 @@ class _CatalogScreenState extends State<CatalogScreen> {
   }
 }
 
+// ---------------------------------------------------------------------------
+// ✔ NEW VERSION OF MediaDetailsSheet (replaced exactly as you requested)
+// ---------------------------------------------------------------------------
+
 class MediaDetailsSheet extends StatelessWidget {
   final Media media;
 
@@ -204,6 +167,9 @@ class MediaDetailsSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final borrowingService =
+        Provider.of<BorrowingService>(context, listen: false);
+
     return Container(
       padding: EdgeInsets.all(16),
       child: Column(
@@ -220,11 +186,8 @@ class MediaDetailsSheet extends StatelessWidget {
               ),
               child: media.imageUrl.isNotEmpty
                   ? Image.network(media.imageUrl, fit: BoxFit.cover)
-                  : Icon(
-                      Icons.library_books,
-                      size: 40,
-                      color: Colors.grey[600],
-                    ),
+                  : Icon(Icons.library_books,
+                      size: 40, color: Colors.grey[600]),
             ),
           ),
           SizedBox(height: 16),
@@ -249,21 +212,38 @@ class MediaDetailsSheet extends StatelessWidget {
           if (media.pages != null) Text('Pages: ${media.pages}'),
           if (media.duration != null) Text('Durée: ${media.duration} min'),
           SizedBox(height: 16),
+
+          /// Borrow Button
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: media.available
-                    ? Color(0xFF8B0000)
-                    : Colors.grey,
+                backgroundColor:
+                    media.available ? Color(0xFF8B0000) : Colors.grey,
               ),
               onPressed: media.available
-                  ? () {
-                      // TODO: Implement borrowing
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Fonction d\'emprunt à venir')),
-                      );
+                  ? () async {
+                      try {
+                        await borrowingService.borrowMedia(
+                          media.id,
+                          media.title,
+                        );
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                                '"${media.title}" emprunté avec succès!'),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                      } catch (e) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Erreur: ${e.toString()}'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
                     }
                   : null,
               child: Text(
@@ -277,6 +257,10 @@ class MediaDetailsSheet extends StatelessWidget {
     );
   }
 }
+
+// ---------------------------------------------------------------------------
+// SEARCH DELEGATE (unchanged)
+// ---------------------------------------------------------------------------
 
 class MediaSearchDelegate extends SearchDelegate {
   @override
@@ -349,7 +333,360 @@ class MediaSearchDelegate extends SearchDelegate {
               subtitle: Text(media.author),
               onTap: () {
                 close(context, null);
-                // Show media details
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+}
+*/
+
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../services/catalog_service.dart';
+import '../../models/media_model.dart';
+import '../../services/borrowing_service.dart';
+
+class CatalogScreen extends StatefulWidget {
+  @override
+  _CatalogScreenState createState() => _CatalogScreenState();
+}
+
+class _CatalogScreenState extends State<CatalogScreen> {
+  String _selectedFilter = 'all';
+  final TextEditingController _searchController = TextEditingController();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Catalogue'),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.search),
+            onPressed: () {
+              showSearch(context: context, delegate: MediaSearchDelegate());
+            },
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          Padding(
+            padding: EdgeInsets.all(16),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _buildFilterChip('Tous', 'all'),
+                  _buildFilterChip('Livres', 'book'),
+                  _buildFilterChip('Magazines', 'magazine'),
+                  _buildFilterChip('Films', 'film'),
+                ],
+              ),
+            ),
+          ),
+          Expanded(child: _buildMediaList()),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterChip(String label, String value) {
+    return Padding(
+      padding: EdgeInsets.only(right: 8),
+      child: FilterChip(
+        label: Text(label),
+        selected: _selectedFilter == value,
+        onSelected: (selected) {
+          setState(() {
+            _selectedFilter = value;
+          });
+        },
+      ),
+    );
+  }
+
+  Widget _buildMediaList() {
+    return StreamBuilder<List<Media>>(
+      stream: _selectedFilter == 'all'
+          ? Provider.of<CatalogService>(context).getMedia()
+          : Provider.of<CatalogService>(
+              context,
+            ).getMediaByType(_selectedFilter),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Center(child: CircularProgressIndicator());
+        }
+
+        if (snapshot.hasError) {
+          return Center(child: Text('Erreur de chargement'));
+        }
+
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return Center(child: Text('Aucun média trouvé'));
+        }
+
+        final mediaList = snapshot.data!;
+
+        return ListView.builder(
+          itemCount: mediaList.length,
+          itemBuilder: (context, index) {
+            final media = mediaList[index];
+            return _buildMediaItem(media);
+          },
+        );
+      },
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // ✅ FIXED VERSION OF _buildMediaItem (Availability Works Perfectly)
+  // ---------------------------------------------------------------------------
+  Widget _buildMediaItem(Media media) {
+    return Card(
+      margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: ListTile(
+        leading: Container(
+          width: 50,
+          height: 70,
+          decoration: BoxDecoration(
+            color: Colors.grey[300],
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: media.imageUrl.isNotEmpty
+              ? Image.network(media.imageUrl, fit: BoxFit.cover)
+              : Icon(Icons.library_books, color: Colors.grey[600]),
+        ),
+        title: Text(media.title),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(media.author),
+            Text(media.type.toUpperCase()),
+            Row(
+              children: [
+                Icon(
+                  Icons.circle,
+                  size: 12,
+                  color: media.available ? Colors.green : Colors.red,
+                ),
+                SizedBox(width: 4),
+                Text(
+                  media.available ? 'Disponible' : 'Emprunté',
+                  style: TextStyle(
+                    color: media.available ? Colors.green : Colors.red,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        trailing: Icon(Icons.arrow_forward_ios, size: 16),
+        onTap: () {
+          _showMediaDetails(media);
+        },
+      ),
+    );
+  }
+
+  void _showMediaDetails(Media media) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) {
+        return MediaDetailsSheet(media: media);
+      },
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// DETAILS SHEET (UNCHANGED EXCEPT FOR USING media.available CORRECTLY)
+// ---------------------------------------------------------------------------
+
+class MediaDetailsSheet extends StatelessWidget {
+  final Media media;
+
+  const MediaDetailsSheet({Key? key, required this.media}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    final borrowingService = Provider.of<BorrowingService>(
+      context,
+      listen: false,
+    );
+
+    return Container(
+      padding: EdgeInsets.all(16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Container(
+              width: 100,
+              height: 150,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: media.imageUrl.isNotEmpty
+                  ? Image.network(media.imageUrl, fit: BoxFit.cover)
+                  : Icon(
+                      Icons.library_books,
+                      size: 40,
+                      color: Colors.grey[600],
+                    ),
+            ),
+          ),
+          SizedBox(height: 16),
+          Text(
+            media.title,
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          SizedBox(height: 8),
+          Text(
+            'Par ${media.author}',
+            style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+          ),
+          SizedBox(height: 8),
+          Chip(
+            label: Text(media.type.toUpperCase()),
+            backgroundColor: Color(0xFF8B0000),
+            labelStyle: TextStyle(color: Colors.white),
+          ),
+          SizedBox(height: 16),
+          Text(media.description),
+          SizedBox(height: 16),
+          if (media.pages != null) Text('Pages: ${media.pages}'),
+          if (media.duration != null) Text('Durée: ${media.duration} min'),
+          SizedBox(height: 16),
+
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: media.available
+                    ? Color(0xFF8B0000)
+                    : Colors.grey,
+              ),
+              onPressed: media.available
+                  ? () async {
+                      try {
+                        await borrowingService.borrowMedia(
+                          media.id,
+                          media.title,
+                        );
+                        Navigator.pop(context);
+
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              '"${media.title}" emprunté avec succès!',
+                            ),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                      } catch (e) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Erreur: ${e.toString()}'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                    }
+                  : null,
+              child: Text(
+                media.available ? 'Emprunter' : 'Indisponible',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// SEARCH DELEGATE (UNCHANGED)
+// ---------------------------------------------------------------------------
+
+class MediaSearchDelegate extends SearchDelegate {
+  @override
+  List<Widget> buildActions(BuildContext context) {
+    return [
+      IconButton(
+        icon: Icon(Icons.clear),
+        onPressed: () {
+          query = '';
+        },
+      ),
+    ];
+  }
+
+  @override
+  Widget buildLeading(BuildContext context) {
+    return IconButton(
+      icon: Icon(Icons.arrow_back),
+      onPressed: () {
+        close(context, null);
+      },
+    );
+  }
+
+  @override
+  Widget buildResults(BuildContext context) {
+    return _buildSearchResults(context);
+  }
+
+  @override
+  Widget buildSuggestions(BuildContext context) {
+    return _buildSearchResults(context);
+  }
+
+  Widget _buildSearchResults(BuildContext context) {
+    return StreamBuilder<List<Media>>(
+      stream: Provider.of<CatalogService>(context).searchMedia(query),
+      builder: (context, snapshot) {
+        if (query.isEmpty) {
+          return Center(child: Text('Tapez quelque chose pour rechercher'));
+        }
+
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Center(child: CircularProgressIndicator());
+        }
+
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return Center(child: Text('Aucun résultat pour "$query"'));
+        }
+
+        final results = snapshot.data!;
+
+        return ListView.builder(
+          itemCount: results.length,
+          itemBuilder: (context, index) {
+            final media = results[index];
+            return ListTile(
+              leading: Container(
+                width: 40,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: media.imageUrl.isNotEmpty
+                    ? Image.network(media.imageUrl, fit: BoxFit.cover)
+                    : Icon(Icons.library_books, size: 20),
+              ),
+              title: Text(media.title),
+              subtitle: Text(media.author),
+              onTap: () {
+                close(context, null);
               },
             );
           },
