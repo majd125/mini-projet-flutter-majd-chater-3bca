@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/auth_service.dart';
+import '../events/events_screen.dart';
 
 class HomeScreen extends StatelessWidget {
+  final Function(int) onTabChange;
+
+  const HomeScreen({Key? key, required this.onTabChange}) : super(key: key);
+
   @override
   Widget build(BuildContext context) {
     final user = Provider.of<AuthService>(context).user;
@@ -42,7 +47,8 @@ class HomeScreen extends StatelessWidget {
                       ),
                       trailing: Icon(Icons.arrow_forward_ios),
                       onTap: () {
-                        // Navigate to catalog
+                        // Navigate to catalog tab
+                        onTabChange(1); // Catalogue is at index 1
                       },
                     ),
                     Divider(),
@@ -52,7 +58,12 @@ class HomeScreen extends StatelessWidget {
                       subtitle: Text('Découvrez les activités culturelles'),
                       trailing: Icon(Icons.arrow_forward_ios),
                       onTap: () {
-                        // Navigate to events
+                        // Events opens as separate page
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => EventsScreen(),
+                          ),
+                        );
                       },
                     ),
                     Divider(),
@@ -62,7 +73,8 @@ class HomeScreen extends StatelessWidget {
                       subtitle: Text('Consultez votre historique'),
                       trailing: Icon(Icons.arrow_forward_ios),
                       onTap: () {
-                        // Navigate to borrowing history
+                        // Navigate to borrowing tab
+                        onTabChange(2); // Mes Emprunts is at index 2
                       },
                     ),
                   ],
