@@ -3,9 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 import 'firebase_options.dart';
+
 import 'services/auth_service.dart';
 import 'services/catalog_service.dart';
-import 'services/borrowing_service.dart'; // Make sure this import exists
+import 'services/borrowing_service.dart';
+import 'services/favorite_service.dart'; // <<--- ADD THIS
+
 import 'views/auth/login_screen.dart';
 import 'views/main_app.dart';
 
@@ -24,7 +27,8 @@ class MyApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthService()),
         Provider(create: (_) => CatalogService()),
-        Provider(create: (_) => BorrowingService()), // This should work now
+        Provider(create: (_) => BorrowingService()),
+        Provider(create: (_) => FavoriteService()), // <<--- ADD THIS LINE
       ],
       child: MaterialApp(
         title: 'MediAcite',
@@ -71,6 +75,7 @@ class AuthWrapper extends StatelessWidget {
   }
 }
 */
+
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
@@ -79,7 +84,8 @@ import 'firebase_options.dart';
 import 'services/auth_service.dart';
 import 'services/catalog_service.dart';
 import 'services/borrowing_service.dart';
-import 'services/favorite_service.dart'; // <<--- ADD THIS
+import 'services/favorite_service.dart';
+import 'services/event_service.dart'; // <<--- ADDED THIS
 
 import 'views/auth/login_screen.dart';
 import 'views/main_app.dart';
@@ -100,7 +106,8 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AuthService()),
         Provider(create: (_) => CatalogService()),
         Provider(create: (_) => BorrowingService()),
-        Provider(create: (_) => FavoriteService()), // <<--- ADD THIS LINE
+        Provider(create: (_) => FavoriteService()),
+        Provider(create: (_) => EventService()), // <<--- ADDED HERE
       ],
       child: MaterialApp(
         title: 'MediAcite',
